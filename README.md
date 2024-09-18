@@ -21,7 +21,7 @@ Balooner is a Rust-based tool for dynamically balancing memory across multiple Q
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/vadika/balooner.git/
+   git clone https://github.com/vadika/balooner.git
    cd balooner
    ```
 
