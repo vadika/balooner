@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let running = Arc::new(Mutex::new(true));
     let r = running.clone();
     thread::spawn(move || {
-        let signals = Signals::new(&[SIGINT, SIGTERM]).unwrap();
+        let mut signals = Signals::new(&[SIGINT, SIGTERM]).unwrap();
         for sig in signals.forever() {
             info!("Received signal {:?}", sig);
             *r.lock().unwrap() = false;
