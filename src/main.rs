@@ -100,23 +100,29 @@ fn balance_memory(vm_name: &str, vm_info: &VmInfo, vm_infos: &Arc<Mutex<HashMap<
         let actual_memory_mb = actual_memory / (1024 * 1024);
         info!("VM: {}, Current memory: {} MB", vm_name, actual_memory_mb);
         
+        // Calculate totals before locking vm_infos
+        let (total_memory, total_target) = {
+            let vm_infos = vm_infos.lock().unwrap();
+            (
+                vm_infos.values().map(|v| v.current_memory_mb).sum::<u64>(),
+                vm_infos.values().map(|v| v.target_memory_mb).sum::<u64>()
+            )
+        };
+        
         let mut vm_infos = vm_infos.lock().unwrap();
         let vm_info = vm_infos.get_mut(vm_name).unwrap();
         vm_info.current_memory_mb = actual_memory_mb;
 
-        let total_memory: u64 = vm_infos.values().map(|v| v.current_memory_mb).sum();
-        let total_target: u64 = vm_infos.values().map(|v| v.target_memory_mb).sum();
-        
         let (new_target, should_adjust) = if total_memory > total_target {
             let excess = total_memory - total_target;
-            let share = excess * vm_info.current_memory_mb / total_memory;
-            let new_target = vm_info.current_memory_mb - share;
+            let share = excess * actual_memory_mb / total_memory;
+            let new_target = actual_memory_mb - share;
             (new_target, new_target < vm_info.target_memory_mb)
-        } else if vm_info.current_memory_mb < vm_info.target_memory_mb && 
+        } else if actual_memory_mb < vm_info.target_memory_mb && 
                   vm_info.last_balanced.elapsed() > Duration::from_secs(300) {
             (vm_info.target_memory_mb, true)
         } else {
-            (vm_info.current_memory_mb, false)
+            (actual_memory_mb, false)
         };
 
         if should_adjust {
