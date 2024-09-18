@@ -107,25 +107,23 @@ fn balance_memory(vm_name: &str, vm_info: &VmInfo, vm_infos: &Arc<Mutex<HashMap<
         let total_memory: u64 = vm_infos.values().map(|v| v.current_memory_mb).sum();
         let total_target: u64 = vm_infos.values().map(|v| v.target_memory_mb).sum();
         
-        if total_memory > total_target {
+        let (new_target, should_adjust) = if total_memory > total_target {
             let excess = total_memory - total_target;
             let share = excess * vm_info.current_memory_mb / total_memory;
             let new_target = vm_info.current_memory_mb - share;
-            
-            if new_target < vm_info.target_memory_mb {
-                info!("VM: {}, Adjusting memory to {} MB", vm_name, new_target);
-                send_command(&mut stream, json!({
-                    "execute": "balloon",
-                    "arguments": {"value": new_target * 1024 * 1024}
-                }))?;
-                vm_info.last_balanced = Instant::now();
-            }
+            (new_target, new_target < vm_info.target_memory_mb)
         } else if vm_info.current_memory_mb < vm_info.target_memory_mb && 
                   vm_info.last_balanced.elapsed() > Duration::from_secs(300) {
-            info!("VM: {}, Increasing memory to {} MB", vm_name, vm_info.target_memory_mb);
+            (vm_info.target_memory_mb, true)
+        } else {
+            (vm_info.current_memory_mb, false)
+        };
+
+        if should_adjust {
+            info!("VM: {}, Adjusting memory to {} MB", vm_name, new_target);
             send_command(&mut stream, json!({
                 "execute": "balloon",
-                "arguments": {"value": vm_info.target_memory_mb * 1024 * 1024}
+                "arguments": {"value": new_target * 1024 * 1024}
             }))?;
             vm_info.last_balanced = Instant::now();
         }
