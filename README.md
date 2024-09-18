@@ -1,6 +1,6 @@
 # Balooner
 
-[![Rust](https://github.com/yourusername/balooner/workflows/Rust/badge.svg)](https://github.com/yourusername/balooner/actions)
+[![Rust](https://github.com/vadika/balooner/workflows/Rust/badge.svg)](https://github.com/vadika/balooner/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Balooner is a Rust-based tool for dynamically balancing memory across multiple QEMU virtual machines using the QEMU Monitor Protocol (QMP).
@@ -21,7 +21,7 @@ Balooner is a Rust-based tool for dynamically balancing memory across multiple Q
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/yourusername/balooner.git
+   git clone https://github.com/vadika/balooner.git
    cd balooner
    ```
 
