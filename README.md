@@ -12,7 +12,7 @@ Balooner is a Rust-based tool for dynamically balancing memory across multiple Q
 ## Prerequisites
 
 - Rust (edition 2021)
-- QEMU with QMP enabled
+- QEMU with QMP enabled and virtio-balloon support
 
 ## Installation
 

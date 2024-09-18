@@ -17,6 +17,7 @@ start_vm() {
         -monitor none \
         -serial none \
         -drive file=/dev/zero,format=raw,media=disk \
+        -device virtio-balloon-pci \
         &
     
     echo "Started $vm_name with $memory MB of memory, QMP socket: $qmp_socket"
