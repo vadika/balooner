@@ -10,8 +10,6 @@ start_vm() {
         -name $vm_name \
         -m $memory \
         -nographic \
-        -enable-kvm \
-        -cpu host \
         -smp 2 \
         -qmp unix:$qmp_socket,server,nowait \
         -monitor none \
