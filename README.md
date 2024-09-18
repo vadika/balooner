@@ -68,3 +68,12 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+## Troubleshooting
+
+If you encounter issues pushing to the repository, make sure you're using the correct branch name:
+
+```sh
+git push origin main
+```
+5. Open a Pull Request
