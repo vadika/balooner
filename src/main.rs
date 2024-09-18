@@ -7,7 +7,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 use log::{info, warn, error};
-use signal_hook::{iterator::Signals, SIGINT, SIGTERM};
+use signal_hook::consts::signal::{SIGINT, SIGTERM};
+use signal_hook::iterator::Signals;
 use chrono::Utc;
 
 #[derive(Clone)]
