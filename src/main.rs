@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::env;
 use std::io::prelude::*;
 use std::os::unix::net::UnixStream;
 use std::sync::{Arc, Mutex};
@@ -10,6 +9,7 @@ use log::{info, warn, error};
 use signal_hook::consts::signal::{SIGINT, SIGTERM};
 use signal_hook::iterator::Signals;
 use chrono::Utc;
+use clap::{App, Arg};
 
 #[derive(Clone)]
 struct VmInfo {
@@ -21,8 +21,7 @@ struct VmInfo {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
-    let vm_infos = parse_args()?;
-    let vm_infos = Arc::new(Mutex::new(vm_infos));
+    let vm_infos = Arc::new(Mutex::new(parse_args()?));
 
     // Set up signal handling
     let running = Arc::new(Mutex::new(true));
@@ -66,16 +65,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn parse_args() -> Result<HashMap<String, VmInfo>, Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 4 || args.len() % 3 != 1 {
-        eprintln!("Usage: {} <vm_name> <qmp_socket_path> <target_memory_mb> ...", args[0]);
-        std::process::exit(1);
-    }
+    let matches = App::new("Memory Balancer")
+        .version("1.0")
+        .author("Your Name")
+        .about("Balances memory across VMs")
+        .arg(Arg::with_name("vm_config")
+            .help("VM configurations in the format: <vm_name> <qmp_socket_path> <target_memory_mb>")
+            .multiple(true)
+            .required(true)
+            .min_values(3))
+        .get_matches();
 
     let mut vm_infos = HashMap::new();
-    for chunk in args[1..].chunks(3) {
-        let vm_name = chunk[0].clone();
-        let socket_path = chunk[1].clone();
+    let vm_configs: Vec<_> = matches.values_of("vm_config").unwrap().collect();
+    
+    for chunk in vm_configs.chunks(3) {
+        let vm_name = chunk[0].to_string();
+        let socket_path = chunk[1].to_string();
         let target_memory_mb = chunk[2].parse()?;
         vm_infos.insert(vm_name, VmInfo {
             socket_path,
