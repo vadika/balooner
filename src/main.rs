@@ -22,8 +22,12 @@ enum BaloonerError {
     Parse(#[from] std::num::ParseIntError),
     #[error("VM not found: {0}")]
     VmNotFound(String),
-    #[error("Memory info not available")]
-    MemoryInfoNotAvailable,
+    #[error("Memory info not available for VM: {0}")]
+    MemoryInfoNotAvailable(String),
+    #[error("Failed to connect to VM socket: {vm} at {path}")]
+    SocketConnection { vm: String, path: String },
+    #[error("Failed to send command to VM: {0}")]
+    CommandSend(String),
 }
 
 #[derive(Clone)]
@@ -62,7 +66,10 @@ fn main() -> Result<(), BaloonerError> {
             while *running.lock().unwrap() {
                 match balance_memory(&vm_name, &vm_info, &vm_infos) {
                     Ok(_) => info!("Memory balanced successfully for VM: {}", vm_name),
-                    Err(e) => error!("Error balancing memory for VM {}: {}", vm_name, e),
+                    Err(e) => {
+                        error!("Error balancing memory for VM {}: {}", vm_name, e);
+                        error!("Error details: {:?}", e);
+                    },
                 }
                 thread::sleep(Duration::from_secs(60));
             }
@@ -72,7 +79,9 @@ fn main() -> Result<(), BaloonerError> {
 
     // Wait for all threads to complete
     for handle in handles {
-        handle.join().unwrap();
+        if let Err(e) = handle.join() {
+            error!("Thread panicked: {:?}", e);
+        }
     }
 
     info!("Shutting down gracefully");
@@ -108,7 +117,11 @@ fn parse_args() -> Result<HashMap<String, VmInfo>, BaloonerError> {
 }
 
 fn balance_memory(vm_name: &str, vm_info: &VmInfo, vm_infos: &Arc<Mutex<HashMap<String, VmInfo>>>) -> Result<(), BaloonerError> {
-    let mut stream = UnixStream::connect(&vm_info.socket_path)?;
+    let mut stream = UnixStream::connect(&vm_info.socket_path)
+        .map_err(|_| BaloonerError::SocketConnection { 
+            vm: vm_name.to_string(), 
+            path: vm_info.socket_path.clone() 
+        })?;
     
     // QMP Handshake
     send_command(&mut stream, json!({"execute": "qmp_capabilities"}))?;
@@ -150,7 +163,7 @@ fn balance_memory(vm_name: &str, vm_info: &VmInfo, vm_infos: &Arc<Mutex<HashMap<
             send_command(&mut stream, json!({
                 "execute": "balloon",
                 "arguments": {"value": new_target * 1024 * 1024}
-            }))?;
+            })).map_err(|e| BaloonerError::CommandSend(format!("Failed to adjust memory: {}", e)))?;
             vm_info.last_balanced = Instant::now();
         }
 
@@ -159,7 +172,7 @@ fn balance_memory(vm_name: &str, vm_info: &VmInfo, vm_infos: &Arc<Mutex<HashMap<
         info!("METRIC,timestamp={},vm={},current_memory={},target_memory={}", 
               timestamp, vm_name, vm_info.current_memory_mb, vm_info.target_memory_mb);
     } else {
-        return Err(BaloonerError::MemoryInfoNotAvailable);
+        return Err(BaloonerError::MemoryInfoNotAvailable(vm_name.to_string()));
     }
 
     Ok(())
