@@ -82,7 +82,7 @@ fn main() -> Result<(), BaloonerError> {
 fn parse_args() -> Result<HashMap<String, VmInfo>, BaloonerError> {
     let matches = Command::new("Memory Balancer")
         .version("1.0")
-        .author("Your Name")
+        .author("Vadim Likholetov")
         .about("Balances memory across VMs")
         .arg(Arg::new("vm_config")
             .help("VM configurations in the format: <vm_name> <qmp_socket_path> <target_memory_mb>")
