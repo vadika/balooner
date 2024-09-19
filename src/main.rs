@@ -10,6 +10,21 @@ use signal_hook::consts::signal::{SIGINT, SIGTERM};
 use signal_hook::iterator::Signals;
 use chrono::Utc;
 use clap::{Command, Arg};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+enum BaloonerError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("Parse error: {0}")]
+    Parse(#[from] std::num::ParseIntError),
+    #[error("VM not found: {0}")]
+    VmNotFound(String),
+    #[error("Memory info not available")]
+    MemoryInfoNotAvailable,
+}
 
 #[derive(Clone)]
 struct VmInfo {
@@ -19,7 +34,7 @@ struct VmInfo {
     last_balanced: Instant,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), BaloonerError> {
     env_logger::init();
     let vm_infos = Arc::new(Mutex::new(parse_args()?));
 
@@ -64,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn parse_args() -> Result<HashMap<String, VmInfo>, Box<dyn std::error::Error>> {
+fn parse_args() -> Result<HashMap<String, VmInfo>, BaloonerError> {
     let matches = Command::new("Memory Balancer")
         .version("1.0")
         .author("Your Name")
@@ -92,7 +107,7 @@ fn parse_args() -> Result<HashMap<String, VmInfo>, Box<dyn std::error::Error>> {
     Ok(vm_infos)
 }
 
-fn balance_memory(vm_name: &str, vm_info: &VmInfo, vm_infos: &Arc<Mutex<HashMap<String, VmInfo>>>) -> std::io::Result<()> {
+fn balance_memory(vm_name: &str, vm_info: &VmInfo, vm_infos: &Arc<Mutex<HashMap<String, VmInfo>>>) -> Result<(), BaloonerError> {
     let mut stream = UnixStream::connect(&vm_info.socket_path)?;
     
     // QMP Handshake
@@ -115,7 +130,7 @@ fn balance_memory(vm_name: &str, vm_info: &VmInfo, vm_infos: &Arc<Mutex<HashMap<
         };
         
         let mut vm_infos = vm_infos.lock().unwrap();
-        let vm_info = vm_infos.get_mut(vm_name).unwrap();
+        let vm_info = vm_infos.get_mut(vm_name).ok_or_else(|| BaloonerError::VmNotFound(vm_name.to_string()))?;
         vm_info.current_memory_mb = actual_memory_mb;
 
         let (new_target, should_adjust) = if total_memory > total_target {
@@ -144,13 +159,13 @@ fn balance_memory(vm_name: &str, vm_info: &VmInfo, vm_infos: &Arc<Mutex<HashMap<
         info!("METRIC,timestamp={},vm={},current_memory={},target_memory={}", 
               timestamp, vm_name, vm_info.current_memory_mb, vm_info.target_memory_mb);
     } else {
-        warn!("VM: {}, Failed to get current memory info", vm_name);
+        return Err(BaloonerError::MemoryInfoNotAvailable);
     }
 
     Ok(())
 }
 
-fn send_command(stream: &mut UnixStream, command: Value) -> std::io::Result<Value> {
+fn send_command(stream: &mut UnixStream, command: Value) -> Result<Value, BaloonerError> {
     let command_str = format!("{}\n", serde_json::to_string(&command)?);
     stream.write_all(command_str.as_bytes())?;
     
