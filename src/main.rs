@@ -9,7 +9,7 @@ use log::{info, warn, error};
 use signal_hook::consts::signal::{SIGINT, SIGTERM};
 use signal_hook::iterator::Signals;
 use chrono::Utc;
-use clap::{App, Arg};
+use clap::{Command, Arg};
 
 #[derive(Clone)]
 struct VmInfo {
@@ -65,19 +65,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn parse_args() -> Result<HashMap<String, VmInfo>, Box<dyn std::error::Error>> {
-    let matches = App::new("Memory Balancer")
+    let matches = Command::new("Memory Balancer")
         .version("1.0")
         .author("Your Name")
         .about("Balances memory across VMs")
-        .arg(Arg::with_name("vm_config")
+        .arg(Arg::new("vm_config")
             .help("VM configurations in the format: <vm_name> <qmp_socket_path> <target_memory_mb>")
-            .multiple(true)
-            .required(true)
-            .min_values(3))
+            .num_args(3..)
+            .required(true))
         .get_matches();
 
     let mut vm_infos = HashMap::new();
-    let vm_configs: Vec<_> = matches.values_of("vm_config").unwrap().collect();
+    let vm_configs: Vec<_> = matches.get_many::<String>("vm_config").unwrap().collect();
     
     for chunk in vm_configs.chunks(3) {
         let vm_name = chunk[0].to_string();
